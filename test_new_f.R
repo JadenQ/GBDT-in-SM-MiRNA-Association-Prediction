@@ -154,7 +154,6 @@ for(negated in 1 : 1) {
     KsIndex<-addForGraph+t(as.matrix(sort.int(Ws[i,],decreasing = T,index.return = T)$ix[2:4]))
   }
   
-  
   ###########
   #subGraph
   ###########
@@ -163,19 +162,7 @@ for(negated in 1 : 1) {
       subGraph<-make_empty_graph(n=2,directed=FALSE)
       subGraph<-set_vertex_attr(subGraph, "name",index=1, value = paste("M",i,sep = ""),label=i)
       subGraph<-set_vertex_attr(subGraph, "name",index=2, value = paste("S",j,sep = ""),label=(m+j))
- #      subGraph<-add_vertices(subGraph,6)               #k-similar MiRNA
- # #add edge for know iteractions
- #      for(k in 1:3){                           #M1->S6,S7,S8
- #        if(MSA[i,KmIndex[i,k]]==1){
- #            subGraph<-add_edges(subGraph,c(1,(5+k))),weight=1)
- #        }
- #      }
- #      for(k in 1:3){                          #S2->M3,M4,M5
- #            if(MSA[(KsIndex[j,k]-m),j]==1){
- #             subGraph<-add_edges(subGraph,c((2+K),2),weight=1)
- #        }
- #      }
- #find m->s interactions
+
       countS=0
       for(k in 1:s){
         if(MSA[i,k]==1){
@@ -280,76 +267,199 @@ for(negated in 1 : 1) {
   C4<-matrix(rep(0,4),1)  #M,M,S,S
   C5<-matrix(rep(0,4),1)  #M,M,M,S
   C6<-matrix(rep(0,4),1)  #M,S,M,S
-  for(k in 2:nrow(Type1PathI)){
-    if(Type1PathI[k,2]>mm){
-      C1<-rbind(C1,Type1PathI[k,])
+  if(nrow(Type1PathI)>1){
+      for(k in 2:nrow(Type1PathI)){
+        if(Type1PathI[k,2]>mm){
+          C1<-rbind(C1,Type1PathI[k,])
+        }
+        else{
+          C2<-rbind(C2,Type1PathI[k,])
+        }
     }
-    else{
-      C2<-rbind(C2,Type1PathI[k,])
-    }
   }
-  for(k in 2:nrow(Type2PathI)){
-    if((Type1PathI[k,2]<=ss)&&(Type1PathI[k,3]<=ss)){
-      C3<-rbind(C3,Type2PathI[k,])
-    }
-    else if((Type1PathI[k,2]>ss)&&(Type1PathI[k,3]<=ss)){
-      C4<-rbind(C4,Type2PathI[k,])
-    }
-    else if((Type1PathI[k,2]>ss)&&(Type1PathI[k,3]>ss)){
-      C5<-rbind(C5,Type2PathI[k,])
-    }
-    else if((Type1PathI[k,2]<=ss)&&(Type1PathI[k,3]>ss)){
-      C6<-rbind(C6,Type2PathI[k,])
-    }    
-  }  
-
-  #get edgeIDs
-  C1edgeID<-matrix(rep(0,2*(nrow(C1)-1)),(nrow(C1)-1),2)
-  C2edgeID<-matrix(rep(0,2*(nrow(C2)-1)),(nrow(C2)-1),2)
-  C3edgeID<-matrix(rep(0,3*(nrow(C3)-1)),(nrow(C3)-1),3)
-  C4edgeID<-matrix(rep(0,3*(nrow(C4)-1)),(nrow(C4)-1),3)
-  C5edgeID<-matrix(rep(0,3*(nrow(C5)-1)),(nrow(C5)-1),3)
-  C6edgeID<-matrix(rep(0,3*(nrow(C6)-1)),(nrow(C6)-1),3)
-
-  for(k in 2:nrow(C1)){
-    EP1=rep(C1[k,],each=2)[-1]
-    EP1=EP1[-length(EP1)]
-    C1edgeID[k,]<-get.edge.ids(subGraph,EP1)
+  else{
+    C1Weight<-matrix(rep(0,2),1)
+    C2Weight<-matrix(rep(0,2),1)
   }
-  for(k in 2:nrow(C2)){
-    EP2=rep(C2[k,],each=2)[-1]
-    EP2=EP2[-length(EP2)]
-    C2edgeID[k,]<-get.edge.ids(subGraph,EP2)
-  }
-  for(k in 2:nrow(C3)){
-    EP3=rep(C3[k,],each=2)[-1]
-    EP3=EP3[-length(EP3)]
-    C3edgeID[k,]<-get.edge.ids(subGraph,EP3)
-  }
-  for(k in 2:nrow(C4)){
-    EP4=rep(C4[k,],each=2)[-1]
-    EP4=EP4[-length(EP4)]
-    C4edgeID[k,]<-get.edge.ids(subGraph,EP4)
-  }
-  for(k in 2:nrow(C5)){
-    EP5=rep(C5[k,],each=2)[-1]
-    EP5=EP5[-length(EP5)]
-    C5edgeID[k,]<-get.edge.ids(subGraph,EP5)
-  }
-  for(k in 2:nrow(C6)){
-    EP6=rep(C6[k,],each=2)[-1]
-    EP6=EP6[-length(EP6)]
-    C6edgeID[k,]<-get.edge.ids(subGraph,EP6)
-  }
-
-#Featrure1
-
-
-  Feature1<-matrix(rep(0,6),1,6)    
-  Feature2<-matrix(rep(0,6),1,6)
-  Feature3<-matrix(rep(0,6),1,6)
-  
+  if(nrow(Type2PathI)>1){
+    for(k in 2:nrow(Type2PathI)){
+      if((Type1PathI[k,2]<=ss)&&(Type1PathI[k,3]<=ss)){
+        C3<-rbind(C3,Type2PathI[k,])
       }
+      else if((Type1PathI[k,2]>ss)&&(Type1PathI[k,3]<=ss)){
+        C4<-rbind(C4,Type2PathI[k,])
+      }
+      else if((Type1PathI[k,2]>ss)&&(Type1PathI[k,3]>ss)){
+        C5<-rbind(C5,Type2PathI[k,])
+      }
+      else if((Type1PathI[k,2]<=ss)&&(Type1PathI[k,3]>ss)){
+        C6<-rbind(C6,Type2PathI[k,])
+      }    
+    }
+  }
+  else{
+    C3Weight<-matrix(rep(0,3),1)
+    C4Weight<-matrix(rep(0,3),1)
+    C5Weight<-matrix(rep(0,3),1)
+    C6Weight<-matrix(rep(0,3),1)
+  }
+    
+
+  if(nrow(C1)>1){
+    C1edgeID<-matrix(rep(0,2*(nrow(C1)-1)),(nrow(C1)-1),2)
+    for(k in 2:nrow(C1)){
+        EP1=rep(C1[k,],each=2)[-1]
+        EP1=EP1[-length(EP1)]
+        C1edgeID[(k-1)),]<-get.edge.ids(subGraph,EP1)
+      }
+    #format the weights
+      C1Weight<-E(subGraph$weight[C1edgeID[1,]])
+      for(k in 2:nrow(C1edgeID)){
+        C1Weight<-rbind(C1Weight,E(subGraph)$weight[C1edgeID[k,]])
+      }
+
+  }
+  else {C1Weight<-matrix(rep(0,2),1)}
+
+  if(nrow(C2)>1){
+    C2edgeID<-matrix(rep(0,2*(nrow(C2)-1)),(nrow(C2)-1),2)
+    for(k in 2:nrow(C2)){
+        EP1=rep(C2[k,],each=2)[-1]
+        EP1=EP1[-length(EP1)]
+        C2edgeID[(k-1)),]<-get.edge.ids(subGraph,EP1)
+      }
+    #format the weights
+      C2Weight<-E(subGraph$weight[C2edgeID[1,]])
+      for(k in 2:nrow(C2edgeID)){
+        C2Weight<-rbind(C2Weight,E(subGraph)$weight[C2edgeID[k,]])
+      }
+
+  }
+  else {C2Weight<-matrix(rep(0,2),1)}
+
+
+  if(nrow(C3)>1){
+    C3edgeID<-matrix(rep(0,2*(nrow(C3)-1)),(nrow(C3)-1),3)
+    for(k in 2:nrow(C3)){
+        EP1=rep(C3[k,],each=2)[-1]
+        EP1=EP1[-length(EP1)]
+        C3edgeID[(k-1)),]<-get.edge.ids(subGraph,EP1)
+      }
+    #format the weights
+      C3Weight<-E(subGraph$weight[C3edgeID[1,]])
+      for(k in 2:nrow(C3edgeID)){
+        C3Weight<-rbind(C3Weight,E(subGraph)$weight[C3edgeID[k,]])
+      }
+
+  }
+  else {C3Weight<-matrix(rep(0,3),1)}
+
+  if(nrow(C4)>1){
+    C4edgeID<-matrix(rep(0,2*(nrow(C4)-1)),(nrow(C4)-1),3)
+    for(k in 2:nrow(C4)){
+        EP1=rep(C4[k,],each=2)[-1]
+        EP1=EP1[-length(EP1)]
+        C4edgeID[(k-1)),]<-get.edge.ids(subGraph,EP1)
+      }
+    #format the weights
+      C4Weight<-E(subGraph$weight[C4edgeID[1,]])
+      for(k in 2:nrow(C4edgeID)){
+        C4Weight<-rbind(C4Weight,E(subGraph)$weight[C4edgeID[k,]])
+      }
+
+  }
+  else {C4Weight<-matrix(rep(0,3),1)} 
+  
+  if(nrow(C5)>1){
+    C5edgeID<-matrix(rep(0,2*(nrow(C5)-1)),(nrow(C5)-1),3)
+    for(k in 2:nrow(C5)){
+        EP1=rep(C5[k,],each=2)[-1]
+        EP1=EP1[-length(EP1)]
+        C5edgeID[(k-1)),]<-get.edge.ids(subGraph,EP1)
+      }
+    #format the weights
+      C5Weight<-E(subGraph$weight[C5edgeID[1,]])
+      for(k in 2:nrow(C5edgeID)){
+        C5Weight<-rbind(C5Weight,E(subGraph)$weight[C5edgeID[k,]])
+      }
+
+  }
+  else {C5Weight<-matrix(rep(0,3),1)} 
+
+  if(nrow(C6)>1){
+    C6edgeID<-matrix(rep(0,2*(nrow(C6)-1)),(nrow(C6)-1),3)
+    for(k in 2:nrow(C6)){
+        EP1=rep(C6[k,],each=2)[-1]
+        EP1=EP1[-length(EP1)]
+        C6edgeID[(k-1)),]<-get.edge.ids(subGraph,EP1)
+      }
+    #format the weights
+      C6Weight<-E(subGraph$weight[C6edgeID[1,]])
+      for(k in 2:nrow(C6edgeID)){
+        C6Weight<-rbind(C6Weight,E(subGraph)$weight[C6edgeID[k,]])
+      }
+
+  }
+  else {C6Weight<-matrix(rep(0,3),1)}
+
+
+
+
+#Featrures
+  Feature1<-matrix(rep(0,6),1,6) 
+  Feature2<-matrix(rep(0,6),1,6)
+  Feature3<-matrix(rep(0,6),1,6)   
+
+  pro<-as.matrix(prod(C1Weight[1,]))
+  for(k in 2:nrow(C1Weight)){
+    pro<-rbind(pro,prod(C1Weight[k,]))
+  }
+  Feature1[1]<-colSums(pro)
+  Feature2[1]<-max(pro)
+  Feature3[1]<-(nrow(C1)-1)
+
+  pro<-as.matrix(prod(C2Weight[1,]))
+  for(k in 2:nrow(C2Weight)){
+    pro<-rbind(pro,prod(C2Weight[k,]))
+  }
+  Feature1[2]<-colSums(pro)
+  Feature2[2]<-max(pro)
+  Feature3[2]<-(nrow(C2)-1)
+
+  pro<-as.matrix(prod(C3Weight[1,]))
+  for(k in 2:nrow(C3Weight)){
+    pro<-rbind(pro,prod(C3Weight[k,]))
+  }
+  Feature1[3]<-colSums(pro)
+  Feature2[3]<-max(pro)
+  Feature3[3]<-(nrow(C3)-1)
+
+  pro<-as.matrix(prod(C4Weight[1,]))
+  for(k in 2:nrow(C4Weight)){
+    pro<-rbind(pro,prod(C4Weight[k,]))
+  }
+  Feature1[4]<-colSums(pro)
+  Feature2[4]<-max(pro)
+  Feature3[4]<-(nrow(C4)-1)
+
+  pro<-as.matrix(prod(C5Weight[1,]))
+  for(k in 2:nrow(C5Weight)){
+    pro<-rbind(pro,prod(C5Weight[k,]))
+  }
+  Feature1[5]<-colSums(pro)
+  Feature2[5]<-max(pro)
+  Feature3[5]<-(nrow(C5)-1)
+
+  pro<-as.matrix(prod(C6Weight[1,]))
+  for(k in 2:nrow(C6Weight)){
+    pro<-rbind(pro,prod(C6Weight[k,]))
+  }
+  Feature1[6]<-colSums(pro)
+  Feature2[6]<-max(pro)
+  Feature3[6]<-(nrow(C6)-1)
+
+  FVector<-cbind(Feature1,Feature2,Feature3)
+
     }#SUBGRAPH i
   }#subgraph j
   
