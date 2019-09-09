@@ -154,6 +154,7 @@ for(negated in 1 : 1) {
     KsIndex<-addForGraph+t(as.matrix(sort.int(Ws[i,],decreasing = T,index.return = T)$ix[2:4]))
   }
   
+  
   ###########
   #subGraph
   ###########
@@ -259,8 +260,96 @@ for(negated in 1 : 1) {
     }
   }
   subGraph<-simplify(subGraph)
-  #
+  #find good paths
+  Type1PathI<-matrix(rep(0,3),1) #the first row go with 0
+  Type2PathI<-matrix(rep(0,4),1)
+  all_path<-all_simple_paths(subGraph,1,2)
+  for(k in 1:length(all_path)){      
+      if(length(all_path[[k]])==3){
+         Type1PathI<-rbind(Type1PathI,t(as.matrix(all_path[[k]])))
+      }
+      else if(length(all_path[[k]])==4){
+        Type2PathI<-rbind(Type2PathI,t(as.matrix(all_path[[k]])))
+      }
   
+  #feature extraction
+  # distinct 6 different paths
+  C1<-matrix(rep(0,3),1)  #M,M,S
+  C2<-matrix(rep(0,3),1)  #M,S,S
+  C3<-matrix(rep(0,4),1)  #M,S,S,S
+  C4<-matrix(rep(0,4),1)  #M,M,S,S
+  C5<-matrix(rep(0,4),1)  #M,M,M,S
+  C6<-matrix(rep(0,4),1)  #M,S,M,S
+  for(k in 2:nrow(Type1PathI)){
+    if(Type1PathI[k,2]>mm){
+      C1<-rbind(C1,Type1PathI[k,])
+    }
+    else{
+      C2<-rbind(C2,Type1PathI[k,])
+    }
+  }
+  for(k in 2:nrow(Type2PathI)){
+    if((Type1PathI[k,2]<=ss)&&(Type1PathI[k,3]<=ss)){
+      C3<-rbind(C3,Type2PathI[k,])
+    }
+    else if((Type1PathI[k,2]>ss)&&(Type1PathI[k,3]<=ss)){
+      C4<-rbind(C4,Type2PathI[k,])
+    }
+    else if((Type1PathI[k,2]>ss)&&(Type1PathI[k,3]>ss)){
+      C5<-rbind(C5,Type2PathI[k,])
+    }
+    else if((Type1PathI[k,2]<=ss)&&(Type1PathI[k,3]>ss)){
+      C6<-rbind(C6,Type2PathI[k,])
+    }    
+  }  
+
+  #get edgeIDs
+  C1edgeID<-matrix(rep(0,2*(nrow(C1)-1)),(nrow(C1)-1),2)
+  C2edgeID<-matrix(rep(0,2*(nrow(C2)-1)),(nrow(C2)-1),2)
+  C3edgeID<-matrix(rep(0,3*(nrow(C3)-1)),(nrow(C3)-1),3)
+  C4edgeID<-matrix(rep(0,3*(nrow(C4)-1)),(nrow(C4)-1),3)
+  C5edgeID<-matrix(rep(0,3*(nrow(C5)-1)),(nrow(C5)-1),3)
+  C6edgeID<-matrix(rep(0,3*(nrow(C6)-1)),(nrow(C6)-1),3)
+
+  for(k in 2:nrow(C1)){
+    EP1=rep(C1[k,],each=2)[-1]
+    EP1=EP1[-length(EP1)]
+    C1edgeID[k,]<-get.edge.ids(subGraph,EP1)
+  }
+  for(k in 2:nrow(C2)){
+    EP2=rep(C2[k,],each=2)[-1]
+    EP2=EP2[-length(EP2)]
+    C2edgeID[k,]<-get.edge.ids(subGraph,EP2)
+  }
+  for(k in 2:nrow(C3)){
+    EP3=rep(C3[k,],each=2)[-1]
+    EP3=EP3[-length(EP3)]
+    C3edgeID[k,]<-get.edge.ids(subGraph,EP3)
+  }
+  for(k in 2:nrow(C4)){
+    EP4=rep(C4[k,],each=2)[-1]
+    EP4=EP4[-length(EP4)]
+    C4edgeID[k,]<-get.edge.ids(subGraph,EP4)
+  }
+  for(k in 2:nrow(C5)){
+    EP5=rep(C5[k,],each=2)[-1]
+    EP5=EP5[-length(EP5)]
+    C5edgeID[k,]<-get.edge.ids(subGraph,EP5)
+  }
+  for(k in 2:nrow(C6)){
+    EP6=rep(C6[k,],each=2)[-1]
+    EP6=EP6[-length(EP6)]
+    C6edgeID[k,]<-get.edge.ids(subGraph,EP6)
+  }
+
+#Featrure1
+
+
+  Feature1<-matrix(rep(0,6),1,6)    
+  Feature2<-matrix(rep(0,6),1,6)
+  Feature3<-matrix(rep(0,6),1,6)
+  
+      }
     }#SUBGRAPH i
   }#subgraph j
   
