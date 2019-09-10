@@ -133,10 +133,10 @@ for(negated in 1 : 1) {
 
       countS=0
       for(k in 1:s){
-        if(MSA[i,k]==1){
+        if(MSA[i,k]>0.5){
           countS=countS+1
           subGraph<-add_vertices(subGraph,1,name=paste("S",k,sep=""),label=(m+k))
-          subGraph<-add_edges(subGraph,c(1,which(V(subGraph)$label==(m+k))),weight=1)
+          subGraph<-add_edges(subGraph,c(1,which(V(subGraph)$label==(m+k))),weight=MSA[i,k])
         }
       }
 #add top3 similar SM node
@@ -155,10 +155,10 @@ for(negated in 1 : 1) {
   #find s->m interactions
       countM=0
       for(k in 1:m){
-        if(MSA[k,j]==1){
+        if(MSA[k,j]>0.5){
           countM=countM+1
           subGraph<-add_vertices(subGraph,1,name=paste("M",k,sep=""),label=k)
-          subGraph<-add_edges(subGraph,c(2,which(V(subGraph)$label==k)),weight=1)
+          subGraph<-add_edges(subGraph,c(2,which(V(subGraph)$label==k)),weight=MSA[k,j])
         }
       }
   #add top3 similar MiRNA node
@@ -185,7 +185,7 @@ for(negated in 1 : 1) {
     {
       positionI=(V(subGraph)$label[k]-m)
       positionII=(V(subGraph)$label[l]-m)
-      if(similaritiesOfSM[positionI,positionII]>0.5){
+      if(similaritiesOfSM[positionI,positionII]>0.3){
         subGraph<-add_edges(subGraph,c(k,l),weight=Ws[positionI,positionII])
       }
 
@@ -197,7 +197,7 @@ for(negated in 1 : 1) {
     {
       positionI=V(subGraph)$label[k]
       positionII=V(subGraph)$label[l]
-      if(similaritiesOfMiRNA[positionI,positionII]>0.5){
+      if(similaritiesOfMiRNA[positionI,positionII]>0.3){
         subGraph<-add_edges(subGraph,c(k,l),weight=Wm[positionI,positionII])
       }
     }
@@ -208,15 +208,18 @@ for(negated in 1 : 1) {
   lineM1=lineS2+countM
   lineM2=lineM1+countM2
   showTheSub<-V(subGraph)$label
-  for(k in (lineS1+1):lineS2){
-    for (l in (lineM1+1):lineM2) {
-      positionI<-V(subGraph)$label[l]
-      positionII<-V(subGraph)$label[k]-m
-      if(MSA[positionI,positionII]==1){
-        subGraph<-add_edges(subGraph,c(k,l),weight=1)
+  if((countS2!=0)&&(countM2!=0)){
+    for(k in (lineS1+1):lineS2){
+      for (l in (lineM1+1):lineM2) {
+        positionI<-V(subGraph)$label[l]
+        positionII<-V(subGraph)$label[k]-m
+        if(MSA[positionI,positionII]>0.5){
+          subGraph<-add_edges(subGraph,c(k,l),weight=MSA[positionI,positionII])
+        }
       }
     }
   }
+
   subGraph<-simplify(subGraph)
   #find good paths
   Type1PathI<-matrix(rep(0,3),1) #the first row go with 0
