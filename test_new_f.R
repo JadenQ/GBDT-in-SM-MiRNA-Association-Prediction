@@ -26,161 +26,21 @@ ALL_SM=MshapeOfSM[c(1)]
 #function for feature extraction
 ############
 
-# BuildTrainingAndTestingData <- function(MSA, similaritiesOfMiRNA, similaritiesOfSM, m, s, knownMSAIndices, 
-#                                         negativeSampleIndices, positiveAndNegativeIndices, globalLoocvTestingIndices, localLoocvTestingIndices,localLoocvTestingIndices2) {
-
-
-
-
-
-
-s = 39 # 831
-m <- max(knownMSA$V2) # 541
-noOfKnownMSA <- nrow(knownMSA) # num of associations
-for(negated in 1 : 1) {
-  # find negated miRNA, SM and their association's index
-  negatedMiRNA <- knownMSA$V2[negated]
-  negatedSM <- knownMSA$V1[negated]
-  negatedIndex <- (negatedMiRNA - 1) * s + negatedSM
-  #############################################
-  # build MSA matrix
-  loocvKnownMSA <- knownMSA[-negated, ]
-  originalMSA <- matrix(data = rep(0, m * s), nrow = m, ncol = s)
-  MSA <- matrix(data = rep(0, m * s), nrow = m, ncol = s)
-  for(i in 1 : m) {
-    negatedAssociations <- subset(loocvKnownMSA, V2 == i, select = V1)
-    for(j in 1 : s) {
-      if (j %in% negatedAssociations$V1) {
-        originalMSA[i, j] <-  1
-      }
-    }
-  }
-  MSA <- originalMSA
-
- for(i in 1:m){
-    for(j in 1:s){
-      if(originalMSA[i,j]==0){
-        ##find similar MiRNA by LINEs
-        SimilarityDeacreaseOfMiRNA=sort.int(similaritiesOfMiRNA[i,],decreasing=T,index.return=T)
-        count1=0                    #count the top similar MiRNAs
-        count2=0
-        similarMiRNAIndex<-rep(0,3) #preset index of top3 similar miRNA
-        similarMiRNASValue<-rep(0,3)#preset similarity value of top3 similar miRNA
-        for(k in 1:m){                             #find similar MiRNA by LINEs
-            # flag=ifelse(SimilarityDeacreaseOfMiRNA$x[k]>0.5,1,-1)
-            # while(flag==1&&count1<3){               #only find top3 similar MiRNAs with similarity value above 0.5
-              if(originalMSA[k,j]==1&&count1<3){      #find top3 similar SM in all other MiRNAs
-               count1=count1+1
-               similarMiRNAIndex[count1]=SimilarityDeacreaseOfMiRNA$ix[k]
-               similarMiRNASValue[count1]=SimilarityDeacreaseOfMiRNA$x[k]
-              }
-              else next
-          }
-          predictSVsepMiRNA<-rep(0,3)
-          for(l in 1:3){
-            if(is.nan(similarMiRNASValue[l])){similarMiRNASValue[l]=0}
-            predictSVsepMiRNA[l]=(similarMiRNASValue[l]^2)/sum(similarMiRNASValue) # predict simi value=(sv1)*w1+(sv2)*w2+(sv3)*w3  P.S. wi=svi/sum[sv]
-            if(is.nan(predictSVsepMiRNA[l])){predictSVsepMiRNA[l]=0}
-            else next
-          }
-          predictSVMiRNA=sum(predictSVsepMiRNA)
-          ##find similar SM by ROWs##
-          SimilarityDeacreaseOfSM=sort.int(similaritiesOfSM[,j],decreasing=T,index.return=T)
-          similarSMIndex<-rep(0,3) #preset index of top3 similar SM
-          similarSMSValue<-rep(0,3)#preset similarity value of top3 similar SM
-          for(k in 1:s){                           #find similar SM by ROWs
-           # flag=ifelse(SimilarityDeacreaseOfSM$x[k]>0.5,1,-1)
-           # while(flag==1&&count2<3){               #only find top3 similar SM with similarity value above 0.5                                
-              if(originalMSA[i,k]==1&&count2<3){      #find top3 similar SM in all other SMs
-               count2=count2+1
-               similarSMIndex[count2]=SimilarityDeacreaseOfSM$ix[k]
-               similarSMSValue[count2]=SimilarityDeacreaseOfSM$x[k]
-              }
-              else next
-            }
-    #}    
-          predictSVsepSM<-rep(0,3)
-          for(l in 1:3){
-            if(is.nan(similarSMSValue[l])){similarSMSValue[l]=0}
-            predictSVsepSM[l]=(similarSMSValue[l]^2)/sum(similarSMSValue) # predict simi value=(sv1)*w1+(sv2)*w2+(sv3)*w3  P.S. wi=svi/sum[sv]
-            if(is.nan(predictSVsepSM[l])){predictSVsepSM[l]=0}
-            else next
-          }
-          predictSVSM=sum(predictSVsepSM)
-          MSA[i,j]=(predictSVMiRNA+predictSVSM)/2
-        }
-        
-        else next
-        }
-    }
-
-  ##########################
-  #random walk
-  ##########################
-  #transition probability matrix:Nm&Ns
-  Nm<-matrix(rep(0,ALL_MiRNA*ALL_MiRNA),nrow=ALL_MiRNA,ncol=ALL_MiRNA)
-  Ns<-matrix(rep(0,ALL_SM*ALL_SM),nrow=ALL_SM,ncol=ALL_SM)
-  MiRNArowsum=rowSums(similaritiesOfMiRNA)
-  SMrowsum=rowSums(similaritiesOfSM)
-  for(i in 1:m){
-    Nm[i,]<-similaritiesOfMiRNA[i,]/MiRNArowsum
-  }
-  for(i in 1:s){
-    Ns[i,]<-similaritiesOfSM[i,]/SMrowsum
-  }
-  #RW probability matrix
-  
-  critical=0.0001
-  set.seed(666)
-  Wm<-matrix(runif((ALL_MiRNA*ALL_MiRNA),min=0,max=1),ALL_MiRNA,ALL_MiRNA)
-  Ws<-matrix(runif((ALL_SM*ALL_SM),min=0,max=1),ALL_SM,ALL_SM)
-  Wm0<-diag(x=1,ALL_MiRNA,ALL_MiRNA)
-  Distance=1
-  a=0.0001                        #restart probability
-  LastWm<-Wm0
-  iteration=0
-  while(Distance>critical){
-    LastWm<-Wm
-    Wm<-(1-a)*Nm*LastWm+a*Wm0
-    iteration=iteration+1
-    Distance=norm((Wm-LastWm),type=c("2")) #2-r norm
-    print(iteration)
-    print(Distance)
-  }
-  Ws0<-diag(x=1,ALL_SM,ALL_SM)
-  Distance=1
-  LastWs<-Ws0
-  while(Distance>critical){
-    LastWs<-Ws
-    Ws<-(1-a)*Ns*LastWs+a*Ws0
-    Distance=norm((Ws-LastWs),type=c("2")) #2-r norm
-  }
+subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices){
+#globalLoocvTestingIndices, localLoocvTestingIndices,localLoocvTestingIndices2
   
 
-  
-  #########################
-  #create k-similar matrix
-  #########################
-  thresholdOfInter=0.8
-  Km<-matrix(rep(0,(ALL_MiRNA*3)),nrow=ALL_MiRNA,ncol=3)
-  Ks<-matrix(rep(0,(ALL_SM*3)),nrow=ALL_SM,ncol=3)
-  KmIndex<-matrix(rep(0,(ALL_MiRNA*3)),nrow=ALL_MiRNA,ncol=3) #index in the graph
-  KsIndex<-matrix(rep(0,(ALL_SM*3)),nrow=ALL_SM,ncol=3)
-  addForGraph<-matrix(rep(ALL_MiRNA,3),1,3)
-  for(i in 1:m){
-    Km[i,]<-t(as.matrix(sort.int(Wm[i,],decreasing = T,index.return = T)$x[2:4])) # not start at 1 because of the simi of their own
-    KmIndex[i,]<-t(as.matrix(sort.int(Wm[i,],decreasing = T,index.return = T)$ix[2:4]))
-  }
-  for(i in 1:s){
-    Ks[i,]<-t(as.matrix(sort.int(Ws[i,],decreasing = T,index.return = T)$x[2:4]))
-    KsIndex[i,]<-addForGraph+t(as.matrix(sort.int(Ws[i,],decreasing = T,index.return = T)$ix[2:4]))
-  }
-  
   ###########
   #subGraph
   ###########
-  for(i in 1:m){
-    for(j in 1:s){
+  FVector<-matrix(rep(0,19*length(SampleIndices)),length(SampleIndices),19)
+  countSamples=0
+  MiRNAIndices <- ifelse(SampleIndices %% ALL_SM == 0, SampleIndices / ALL_SM, 
+                                              as.integer(SampleIndices / ALL_SM) + 1) 
+  SMIndices <- ifelse(SampleIndices %% ALL_SM == 0, ALL_SM, SampleIndices %% ALL_SM)
+
+  for(i in 1:MiRNAIndices){
+    for(j in 1:SMIndices){
       subGraph<-make_empty_graph(n=2,directed=FALSE)
       subGraph<-set_vertex_attr(subGraph, "name",index=1, value = paste("M",i,sep = ""))
       subGraph<-set_vertex_attr(subGraph,"label",index=1,value=i)
@@ -189,7 +49,7 @@ for(negated in 1 : 1) {
 
       countS=0
       for(k in 1:s){
-        if(MSA[i,k]>0.5){
+        if(MSA[i,k]>thresholdOfInter){
           countS=countS+1
           subGraph<-add_vertices(subGraph,1,name=paste("S",k,sep=""),label=(m+k))
           subGraph<-add_edges(subGraph,c(1,which(V(subGraph)$label==(m+k))),weight=MSA[i,k])
@@ -204,14 +64,14 @@ for(negated in 1 : 1) {
           else
           {
             countS2=countS2+1
-            subGraph<-add_vertices(subGraph,1,name=paste("S",KsIndex[j,k],sep=""),label=KsIndex[j,k])
+            subGraph<-add_vertices(subGraph,1,name=paste("S",(KsIndex[j,k]-m),sep=""),label=KsIndex[j,k])
             subGraph<-add_edges(subGraph,c(2,which(V(subGraph)$label==KsIndex[j,k])),weight=Ks[j,k])
           }
       }
   #find s->m interactions
       countM=0
       for(k in 1:m){
-        if(MSA[k,j]>0.5){
+        if(MSA[k,j]>thresholdOfInter){
           countM=countM+1
           subGraph<-add_vertices(subGraph,1,name=paste("M",k,sep=""),label=k)
           subGraph<-add_edges(subGraph,c(2,which(V(subGraph)$label==k)),weight=MSA[k,j])
@@ -241,7 +101,7 @@ for(negated in 1 : 1) {
     {
       positionI=(V(subGraph)$label[k]-m)
       positionII=(V(subGraph)$label[l]-m)
-      if(similaritiesOfSM[positionI,positionII]>0.38){
+      if(similaritiesOfSM[positionI,positionII]>0.37){
         subGraph<-add_edges(subGraph,c(k,l),weight=Ws[positionI,positionII])
       }
 
@@ -253,7 +113,7 @@ for(negated in 1 : 1) {
     {
       positionI=V(subGraph)$label[k]
       positionII=V(subGraph)$label[l]
-      if(similaritiesOfMiRNA[positionI,positionII]>0.38){
+      if(similaritiesOfMiRNA[positionI,positionII]>0.37){
         subGraph<-add_edges(subGraph,c(k,l),weight=Wm[positionI,positionII])
       }
     }
@@ -269,7 +129,7 @@ for(negated in 1 : 1) {
       for (l in (lineM1+1):lineM2) {
         positionI<-V(subGraph)$label[l]
         positionII<-V(subGraph)$label[k]-m
-        if(MSA[positionI,positionII]>0.5){
+        if(MSA[positionI,positionII]>thresholdOfInter){
           subGraph<-add_edges(subGraph,c(k,l),weight=MSA[positionI,positionII])
         }
       }
@@ -288,7 +148,7 @@ for(negated in 1 : 1) {
       else if(length(all_path[[k]])==4){
         Type2PathI<-rbind(Type2PathI,t(as.matrix(all_path[[k]])))
       }
-  
+  }
   #feature extraction
   # distinct 6 different paths
   C1<-matrix(rep(0,3),1)  #M,M,S
@@ -551,9 +411,222 @@ for(negated in 1 : 1) {
   Feature2[6]<-max(pro)
   Feature3[6]<-(nrow(C6)-1)
 
-  FVector<-cbind(Feature1,Feature2,Feature3)
+  if(originalMSA[i,j]==1){
+    Label=1
+  }
+  else{Label=0}
+  Label<-as.matrix(Label)
 
+  FVector[countSamples,]<-cbind(Label,Feature1,Feature2,Feature3)
+
+  countSamples=countSamples+1
     }#SUBGRAPH i
   }#subgraph j
-  }
+  return(FVector)       #return a matrix composed of Feature Vectors from Training or Testing samples
 }
+
+#LOOCV loop
+s = ALL_SM # 831
+m <- max(knownMSA$V2) # 541
+noOfKnownMSA <- nrow(knownMSA) # num of associations
+for(negated in 1 : 1) {
+  # find negated miRNA, SM and their association's index
+  negatedMiRNA <- knownMSA$V2[negated]
+  negatedSM <- knownMSA$V1[negated]
+  negatedIndex <- (negatedMiRNA - 1) * s + negatedSM
+  #############################################
+  # build MSA matrix
+  loocvKnownMSA <- knownMSA[-negated, ]
+  originalMSA <- matrix(data = rep(0, m * s), nrow = m, ncol = s)
+  MSA <- matrix(data = rep(0, m * s), nrow = m, ncol = s)
+  for(i in 1 : m) {
+    negatedAssociations <- subset(loocvKnownMSA, V2 == i, select = V1)
+    for(j in 1 : s) {
+      if (j %in% negatedAssociations$V1) {
+        originalMSA[i, j] <-  1
+      }
+    }
+  }
+  MSA <- originalMSA
+#FIX the zero
+ for(i in 1:m){
+    for(j in 1:s){
+      if(originalMSA[i,j]==0){
+        ##find similar MiRNA by LINEs
+        SimilarityDeacreaseOfMiRNA=sort.int(similaritiesOfMiRNA[i,],decreasing=T,index.return=T)
+        count1=0                    #count the top similar MiRNAs
+        count2=0
+        similarMiRNAIndex<-rep(0,3) #preset index of top3 similar miRNA
+        similarMiRNASValue<-rep(0,3)#preset similarity value of top3 similar miRNA
+        for(k in 1:m){                             #find similar MiRNA by LINEs
+            # flag=ifelse(SimilarityDeacreaseOfMiRNA$x[k]>0.5,1,-1)
+            # while(flag==1&&count1<3){               #only find top3 similar MiRNAs with similarity value above 0.5
+              if(originalMSA[k,j]==1&&count1<3){      #find top3 similar SM in all other MiRNAs
+               count1=count1+1
+               similarMiRNAIndex[count1]=SimilarityDeacreaseOfMiRNA$ix[k]
+               similarMiRNASValue[count1]=SimilarityDeacreaseOfMiRNA$x[k]
+              }
+              else next
+          }
+          predictSVsepMiRNA<-rep(0,3)
+          for(l in 1:3){
+            if(is.nan(similarMiRNASValue[l])){similarMiRNASValue[l]=0}
+            predictSVsepMiRNA[l]=(similarMiRNASValue[l]^2)/sum(similarMiRNASValue) # predict simi value=(sv1)*w1+(sv2)*w2+(sv3)*w3  P.S. wi=svi/sum[sv]
+            if(is.nan(predictSVsepMiRNA[l])){predictSVsepMiRNA[l]=0}
+            else next
+          }
+          predictSVMiRNA=sum(predictSVsepMiRNA)
+          ##find similar SM by ROWs##
+          SimilarityDeacreaseOfSM=sort.int(similaritiesOfSM[,j],decreasing=T,index.return=T)
+          similarSMIndex<-rep(0,3) #preset index of top3 similar SM
+          similarSMSValue<-rep(0,3)#preset similarity value of top3 similar SM
+          for(k in 1:s){                           #find similar SM by ROWs
+           # flag=ifelse(SimilarityDeacreaseOfSM$x[k]>0.5,1,-1)
+           # while(flag==1&&count2<3){               #only find top3 similar SM with similarity value above 0.5                                
+              if(originalMSA[i,k]==1&&count2<3){      #find top3 similar SM in all other SMs
+               count2=count2+1
+               similarSMIndex[count2]=SimilarityDeacreaseOfSM$ix[k]
+               similarSMSValue[count2]=SimilarityDeacreaseOfSM$x[k]
+              }
+              else next
+            }
+    #}    
+          predictSVsepSM<-rep(0,3)
+          for(l in 1:3){
+            if(is.nan(similarSMSValue[l])){similarSMSValue[l]=0}
+            predictSVsepSM[l]=(similarSMSValue[l]^2)/sum(similarSMSValue) # predict simi value=(sv1)*w1+(sv2)*w2+(sv3)*w3  P.S. wi=svi/sum[sv]
+            if(is.nan(predictSVsepSM[l])){predictSVsepSM[l]=0}
+            else next
+          }
+          predictSVSM=sum(predictSVsepSM)
+          MSA[i,j]=(predictSVMiRNA+predictSVSM)/2
+        }
+        
+        else next
+        }
+    }
+##########################
+  #random walk
+  ##########################
+  #transition probability matrix:Nm&Ns
+  Nm<-matrix(rep(0,ALL_MiRNA*ALL_MiRNA),nrow=ALL_MiRNA,ncol=ALL_MiRNA)
+  Ns<-matrix(rep(0,ALL_SM*ALL_SM),nrow=ALL_SM,ncol=ALL_SM)
+  MiRNArowsum=rowSums(similaritiesOfMiRNA)
+  SMrowsum=rowSums(similaritiesOfSM)
+  for(i in 1:m){
+    Nm[i,]<-similaritiesOfMiRNA[i,]/MiRNArowsum
+  }
+  for(i in 1:s){
+    Ns[i,]<-similaritiesOfSM[i,]/SMrowsum
+  }
+  #RW probability matrix
+  
+  critical=0.0001
+  set.seed(666)
+  Wm<-matrix(runif((ALL_MiRNA*ALL_MiRNA),min=0,max=1),ALL_MiRNA,ALL_MiRNA)
+  Ws<-matrix(runif((ALL_SM*ALL_SM),min=0,max=1),ALL_SM,ALL_SM)
+  Wm0<-diag(x=1,ALL_MiRNA,ALL_MiRNA)
+  Distance=1
+  a=0.0001                        #restart probability
+  LastWm<-Wm0
+  iteration=0
+  while(Distance>critical){
+    LastWm<-Wm
+    Wm<-(1-a)*Nm*LastWm+a*Wm0
+    iteration=iteration+1
+    Distance=norm((Wm-LastWm),type=c("2")) #2-r norm
+    print(iteration)
+    print(Distance)
+  }
+  Ws0<-diag(x=1,ALL_SM,ALL_SM)
+  Distance=1
+  LastWs<-Ws0
+  while(Distance>critical){
+    LastWs<-Ws
+    Ws<-(1-a)*Ns*LastWs+a*Ws0
+    Distance=norm((Ws-LastWs),type=c("2")) #2-r norm
+  }
+  
+
+  
+  #########################
+  #create k-similar matrix
+  #########################
+  thresholdOfInter=0.8
+  Km<-matrix(rep(0,(ALL_MiRNA*3)),nrow=ALL_MiRNA,ncol=3)
+  Ks<-matrix(rep(0,(ALL_SM*3)),nrow=ALL_SM,ncol=3)
+  KmIndex<-matrix(rep(0,(ALL_MiRNA*3)),nrow=ALL_MiRNA,ncol=3) #index in the graph
+  KsIndex<-matrix(rep(0,(ALL_SM*3)),nrow=ALL_SM,ncol=3)
+  addForGraph<-matrix(rep(ALL_MiRNA,3),1,3)
+  for(i in 1:m){
+    Km[i,]<-t(as.matrix(sort.int(Wm[i,],decreasing = T,index.return = T)$x[2:4])) # not start at 1 because of the simi of their own
+    KmIndex[i,]<-t(as.matrix(sort.int(Wm[i,],decreasing = T,index.return = T)$ix[2:4]))
+  }
+  for(i in 1:s){
+    Ks[i,]<-t(as.matrix(sort.int(Ws[i,],decreasing = T,index.return = T)$x[2:4]))
+    KsIndex[i,]<-addForGraph+t(as.matrix(sort.int(Ws[i,],decreasing = T,index.return = T)$ix[2:4]))
+  }
+
+  ###############
+  #Sampling
+  ###############
+  knownMSAIndices <- which(t(originalMSA) == 1, arr.ind = F)
+  allIndices <- 1 : (m * s)
+
+  negativeSampleIndices<-sample(allIndices[-knownMSAIndices], size = 663, replace = F)
+  positiveAndNegativeIndices <- c(knownMSAIndices, negativeSampleIndices)
+  #find global and local Indexs
+  globalLoocvTestingIndices <- (1 : (m * s))[-knownMSAIndices]
+  negatedIndexInGlobalTesting <- which(globalLoocvTestingIndices == negatedIndex)
+  negatedIndexInLocalTesting <- which(which(originalMSA[,negatedSM] == 0) == negatedMiRNA)
+  localLoocvTestingIndices <- (which(originalMSA[,negatedSM] == 0) - 1) * s + negatedSM         
+  negatedIndexInLocalTesting2 <- which(which(originalMSA[negatedMiRNA,] == 0) == negatedSM)
+  localLoocvTestingIndices2 <- (which(originalMSA[negatedMiRNA,] == 0) - 1) * m + negatedMiRNA 
+
+  ################
+  #Use the Feature extraction Function
+  ################
+  SampleIndices<-positiveAndNegativeIndices
+  FeatureVOfTrainingSamples<-subGraphFeature(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices)
+  SampleIndices<-globalLoocvTestingIndices
+  FeatureVOfGlobalTestSamples<-subGraphFeature(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices)
+  SampleIndices<-localLoocvTestingIndices
+  FeatureVOfLocaltestSamples1<-subGraphFeature(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices)
+  SampleIndices<-localLoocvTestingIndices2
+  FeatureVOfLocaltestSamples2<-subGraphFeature(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices)
+
+
+  ###############
+  #Training model
+  ###############
+  X_train=trainingAndTestingData$loocvTrainingFeatureVectors[, -1]
+  #Y_trian=labels
+  Y_train=trainingAndTestingData$loocvTrainingFeatureVectors[, 1]
+  metric = ifelse(is.factor(Y_train), "Accuracy", "RMSE")
+  trControl=trainControl(method="none")
+  gbm1=train(X_train, Y_train, method = "gbm", preProcess = NULL, 
+  weights = NULL,trControl=trainControl(method="none") ,metric = ifelse(is.factor(Y_train), "Accuracy", "RMSE"),
+  maximize = ifelse(metric %in% c("RMSE", "logLoss", "MAE"), FALSE,
+  TRUE),tuneGrid = NULL,tuneLength = ifelse(trControl$method == "none", 1, 3))
+
+  #############
+  #use the model to predict
+  #############
+  predictedWeightsGlobal <- predict(gbm1, data.frame(FeatureVOfGlobalTestSamples))
+  predictedWeightsLocal <- predict(gbm1, data.frame(trainingAndTestingData$localLoocvTestingFeatureVectors))
+  predictedWeightsLocal2 <- predict(gbm1, data.frame(trainingAndTestingData$localLoocvTestingFeatureVectors2))
+  
+  ##########
+  #get the ranking
+  ##########
+  globalRankingOfNegated <- which(sort.int(predictedWeightsGlobal, decreasing = T, index.return = T)$ix == negatedIndexInGlobalTesting)
+  localRankingOfNegated <- which(sort.int(predictedWeightsLocal, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting)
+  localRankingOfNegated2 <- which(sort.int(predictedWeightsLocal2, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting2)
+  rankings <- rbind(rankings, c(globalRankingOfNegated, localRankingOfNegated, localRankingOfNegated2))
+
+
+
+  }#negated leave one
+
+write.csv(rankings, file = "./test/newrgbdt-.csv", row.names = F)
+write.table(rankings, file = "./test/newrgbdt.txt", col.names = T,row.names = F, sep = "\t")
