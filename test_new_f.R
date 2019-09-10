@@ -39,8 +39,8 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
                                               as.integer(SampleIndices / ALL_SM) + 1) 
   SMIndices <- ifelse(SampleIndices %% ALL_SM == 0, ALL_SM, SampleIndices %% ALL_SM)
 
-  for(i in 1:MiRNAIndices){
-    for(j in 1:SMIndices){
+  for(i in MiRNAIndices){
+    for(j in SMIndices){
       subGraph<-make_empty_graph(n=2,directed=FALSE)
       subGraph<-set_vertex_attr(subGraph, "name",index=1, value = paste("M",i,sep = ""))
       subGraph<-set_vertex_attr(subGraph,"label",index=1,value=i)
