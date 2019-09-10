@@ -57,6 +57,62 @@ for(negated in 1 : 1) {
   }
   MSA <- originalMSA
 
+ for(i in 1:m){
+    for(j in 1:s){
+      if(originalMSA[i,j]==0){
+        ##find similar MiRNA by LINEs
+        SimilarityDeacreaseOfMiRNA=sort.int(similaritiesOfMiRNA[i,],decreasing=T,index.return=T)
+        count1=0                    #count the top similar MiRNAs
+        count2=0
+        similarMiRNAIndex<-rep(0,3) #preset index of top3 similar miRNA
+        similarMiRNASValue<-rep(0,3)#preset similarity value of top3 similar miRNA
+        for(k in 1:m){                             #find similar MiRNA by LINEs
+            # flag=ifelse(SimilarityDeacreaseOfMiRNA$x[k]>0.5,1,-1)
+            # while(flag==1&&count1<3){               #only find top3 similar MiRNAs with similarity value above 0.5
+              if(originalMSA[k,j]==1&&count1<3){      #find top3 similar SM in all other MiRNAs
+               count1=count1+1
+               similarMiRNAIndex[count1]=SimilarityDeacreaseOfMiRNA$ix[k]
+               similarMiRNASValue[count1]=SimilarityDeacreaseOfMiRNA$x[k]
+              }
+              else next
+          }
+          predictSVsepMiRNA<-rep(0,3)
+          for(l in 1:3){
+            if(is.nan(similarMiRNASValue[l])){similarMiRNASValue[l]=0}
+            predictSVsepMiRNA[l]=(similarMiRNASValue[l]^2)/sum(similarMiRNASValue) # predict simi value=(sv1)*w1+(sv2)*w2+(sv3)*w3  P.S. wi=svi/sum[sv]
+            if(is.nan(predictSVsepMiRNA[l])){predictSVsepMiRNA[l]=0}
+            else next
+          }
+          predictSVMiRNA=sum(predictSVsepMiRNA)
+          ##find similar SM by ROWs##
+          SimilarityDeacreaseOfSM=sort.int(similaritiesOfSM[,j],decreasing=T,index.return=T)
+          similarSMIndex<-rep(0,3) #preset index of top3 similar SM
+          similarSMSValue<-rep(0,3)#preset similarity value of top3 similar SM
+          for(k in 1:s){                           #find similar SM by ROWs
+           # flag=ifelse(SimilarityDeacreaseOfSM$x[k]>0.5,1,-1)
+           # while(flag==1&&count2<3){               #only find top3 similar SM with similarity value above 0.5                                
+              if(originalMSA[i,k]==1&&count2<3){      #find top3 similar SM in all other SMs
+               count2=count2+1
+               similarSMIndex[count2]=SimilarityDeacreaseOfSM$ix[k]
+               similarSMSValue[count2]=SimilarityDeacreaseOfSM$x[k]
+              }
+              else next
+            }
+    #}    
+          predictSVsepSM<-rep(0,3)
+          for(l in 1:3){
+            if(is.nan(similarSMSValue[l])){similarSMSValue[l]=0}
+            predictSVsepSM[l]=(similarSMSValue[l]^2)/sum(similarSMSValue) # predict simi value=(sv1)*w1+(sv2)*w2+(sv3)*w3  P.S. wi=svi/sum[sv]
+            if(is.nan(predictSVsepSM[l])){predictSVsepSM[l]=0}
+            else next
+          }
+          predictSVSM=sum(predictSVsepSM)
+          MSA[i,j]=(predictSVMiRNA+predictSVSM)/2
+        }
+        
+        else next
+        }
+    }
 
   ##########################
   #random walk
@@ -185,7 +241,7 @@ for(negated in 1 : 1) {
     {
       positionI=(V(subGraph)$label[k]-m)
       positionII=(V(subGraph)$label[l]-m)
-      if(similaritiesOfSM[positionI,positionII]>0.3){
+      if(similaritiesOfSM[positionI,positionII]>0.38){
         subGraph<-add_edges(subGraph,c(k,l),weight=Ws[positionI,positionII])
       }
 
@@ -197,7 +253,7 @@ for(negated in 1 : 1) {
     {
       positionI=V(subGraph)$label[k]
       positionII=V(subGraph)$label[l]
-      if(similaritiesOfMiRNA[positionI,positionII]>0.3){
+      if(similaritiesOfMiRNA[positionI,positionII]>0.38){
         subGraph<-add_edges(subGraph,c(k,l),weight=Wm[positionI,positionII])
       }
     }
