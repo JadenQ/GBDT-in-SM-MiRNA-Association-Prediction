@@ -34,14 +34,18 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
   #subGraph
   ###########
   FVector<-matrix(rep(0,19*length(SampleIndices)),length(SampleIndices),19)
-  countSamples=0
+  countSamples=1
   MiRNAIndices <- ifelse(SampleIndices %% ALL_SM == 0, SampleIndices / ALL_SM, 
                                               as.integer(SampleIndices / ALL_SM) + 1) 
   SMIndices <- ifelse(SampleIndices %% ALL_SM == 0, ALL_SM, SampleIndices %% ALL_SM)
+  thresholdOfSimilarity=0.8
+  thresholdOfInter=0.8
 
-  for(i in MiRNAIndices){
-    for(j in SMIndices){
-      subGraph<-make_empty_graph(n=2,directed=FALSE)
+for(times in 1:length(SampleIndices)){
+  i<-MiRNAIndices[times]
+  j<-SMIndices[times]
+
+  subGraph<-make_empty_graph(n=2,directed=FALSE)
       subGraph<-set_vertex_attr(subGraph, "name",index=1, value = paste("M",i,sep = ""))
       subGraph<-set_vertex_attr(subGraph,"label",index=1,value=i)
       subGraph<-set_vertex_attr(subGraph, "name",index=2, value = paste("S",j,sep = ""))
@@ -101,7 +105,7 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
     {
       positionI=(V(subGraph)$label[k]-m)
       positionII=(V(subGraph)$label[l]-m)
-      if(similaritiesOfSM[positionI,positionII]>0.37){
+      if(similaritiesOfSM[positionI,positionII]>thresholdOfSimilarity){
         subGraph<-add_edges(subGraph,c(k,l),weight=Ws[positionI,positionII])
       }
 
@@ -113,7 +117,7 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
     {
       positionI=V(subGraph)$label[k]
       positionII=V(subGraph)$label[l]
-      if(similaritiesOfMiRNA[positionI,positionII]>0.37){
+      if(similaritiesOfMiRNA[positionI,positionII]>thresholdOfSimilarity){
         subGraph<-add_edges(subGraph,c(k,l),weight=Wm[positionI,positionII])
       }
     }
@@ -137,10 +141,18 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
   }
 
   subGraph<-simplify(subGraph)
+  print("Get subGraph...")
   #find good paths
   Type1PathI<-matrix(rep(0,3),1) #the first row go with 0
   Type2PathI<-matrix(rep(0,4),1)
   all_path<-all_simple_paths(subGraph,1,2)
+  print("Find all paths...")
+  print(countSamples)
+  #smoothing
+  if(length(all_path)<1){
+    subGraph<-add.edges(subGraph,c(1,2),weight=0.000001)
+    all_path<-all_simple_paths(subGraph,1,2)
+  }
   for(k in 1:length(all_path)){      
       if(length(all_path[[k]])==3){
          Type1PathI<-rbind(Type1PathI,t(as.matrix(all_path[[k]])))
@@ -159,7 +171,7 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
   C6<-matrix(rep(0,4),1)  #M,S,M,S
   if(nrow(Type1PathI)>1){
       for(k in 2:nrow(Type1PathI)){
-        if(Type1PathI[k,2]>mm){
+        if(Type1PathI[k,2]<mm){
           C1<-rbind(C1,Type1PathI[k,])
         }
         else{
@@ -418,10 +430,11 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
   Label<-as.matrix(Label)
 
   FVector[countSamples,]<-cbind(Label,Feature1,Feature2,Feature3)
-
+  print("Get feature Vectors...")
+  print(countSamples)
   countSamples=countSamples+1
-    }#SUBGRAPH i
-  }#subgraph j
+}# End the subgraph 
+  print("Get feature Vectors Matrix...")
   return(FVector)       #return a matrix composed of Feature Vectors from Training or Testing samples
 }
 
@@ -552,7 +565,6 @@ for(negated in 1 : 1) {
   #########################
   #create k-similar matrix
   #########################
-  thresholdOfInter=0.8
   Km<-matrix(rep(0,(ALL_MiRNA*3)),nrow=ALL_MiRNA,ncol=3)
   Ks<-matrix(rep(0,(ALL_SM*3)),nrow=ALL_SM,ncol=3)
   KmIndex<-matrix(rep(0,(ALL_MiRNA*3)),nrow=ALL_MiRNA,ncol=3) #index in the graph
@@ -586,12 +598,16 @@ for(negated in 1 : 1) {
   ################
   #Use the Feature extraction Function
   ################
+  print("Build features for the training data...")
   SampleIndices<-positiveAndNegativeIndices
   FeatureVOfTrainingSamples<-subGraphFeature(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices)
+  print("Build features for global testing data...")
   SampleIndices<-globalLoocvTestingIndices
   FeatureVOfGlobalTestSamples<-subGraphFeature(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices)
+  print("Build features for local1 testing data...")
   SampleIndices<-localLoocvTestingIndices
   FeatureVOfLocaltestSamples1<-subGraphFeature(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices)
+  print("Build features for local2 testing data...")
   SampleIndices<-localLoocvTestingIndices2
   FeatureVOfLocaltestSamples2<-subGraphFeature(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices)
 
@@ -599,9 +615,10 @@ for(negated in 1 : 1) {
   ###############
   #Training model
   ###############
-  X_train=trainingAndTestingData$loocvTrainingFeatureVectors[, -1]
+  print("Training the model...")
+  X_train=FeatureVOfTrainingSamples[, -1]
   #Y_trian=labels
-  Y_train=trainingAndTestingData$loocvTrainingFeatureVectors[, 1]
+  Y_train=FeatureVOfTrainingSamples[, 1]
   metric = ifelse(is.factor(Y_train), "Accuracy", "RMSE")
   trControl=trainControl(method="none")
   gbm1=train(X_train, Y_train, method = "gbm", preProcess = NULL, 
@@ -612,13 +629,15 @@ for(negated in 1 : 1) {
   #############
   #use the model to predict
   #############
-  predictedWeightsGlobal <- predict(gbm1, data.frame(FeatureVOfGlobalTestSamples))
-  predictedWeightsLocal <- predict(gbm1, data.frame(trainingAndTestingData$localLoocvTestingFeatureVectors))
-  predictedWeightsLocal2 <- predict(gbm1, data.frame(trainingAndTestingData$localLoocvTestingFeatureVectors2))
+  print("Predicting scores...")
+  predictedWeightsGlobal <- predict(gbm1, data.frame(FeatureVOfGlobalTestSamples[,-1]))
+  predictedWeightsLocal <- predict(gbm1, data.frame(FeatureVOfLocaltestSamples1[,-1]))
+  predictedWeightsLocal2 <- predict(gbm1, data.frame(FeatureVOfLocaltestSamples2[,-1]))
   
   ##########
   #get the ranking
   ##########
+  print("Give the ranking...")
   globalRankingOfNegated <- which(sort.int(predictedWeightsGlobal, decreasing = T, index.return = T)$ix == negatedIndexInGlobalTesting)
   localRankingOfNegated <- which(sort.int(predictedWeightsLocal, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting)
   localRankingOfNegated2 <- which(sort.int(predictedWeightsLocal2, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting2)
