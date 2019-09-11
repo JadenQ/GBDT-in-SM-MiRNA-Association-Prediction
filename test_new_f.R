@@ -442,7 +442,7 @@ for(times in 1:length(SampleIndices)){
 s = ALL_SM # 831
 m <- max(knownMSA$V2) # 541
 noOfKnownMSA <- nrow(knownMSA) # num of associations
-for(negated in 1 : 1) {
+for(negated in 1 : nrow(knownMSA)) {
   # find negated miRNA, SM and their association's index
   negatedMiRNA <- knownMSA$V2[negated]
   negatedSM <- knownMSA$V1[negated]
@@ -621,7 +621,7 @@ for(negated in 1 : 1) {
   Y_train=FeatureVOfTrainingSamples[, 1]
   metric = ifelse(is.factor(Y_train), "Accuracy", "RMSE")
   trControl=trainControl(method="none")
-  gbm1=train(X_train, Y_train, method = "gbm", preProcess = NULL, 
+  gbm1=caret::train(data.frame(X_train), Y_train, method = "gbm", preProcess = NULL, 
   weights = NULL,trControl=trainControl(method="none") ,metric = ifelse(is.factor(Y_train), "Accuracy", "RMSE"),
   maximize = ifelse(metric %in% c("RMSE", "logLoss", "MAE"), FALSE,
   TRUE),tuneGrid = NULL,tuneLength = ifelse(trControl$method == "none", 1, 3))
