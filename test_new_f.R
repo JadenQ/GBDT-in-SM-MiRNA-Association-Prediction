@@ -34,7 +34,6 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
   #subGraph
   ###########
   FVector<-matrix(rep(0,19*length(SampleIndices)),length(SampleIndices),19)
-  countSamples=1
   MiRNAIndices <- ifelse(SampleIndices %% ALL_SM == 0, SampleIndices / ALL_SM, 
                                               as.integer(SampleIndices / ALL_SM) + 1) 
   SMIndices <- ifelse(SampleIndices %% ALL_SM == 0, ALL_SM, SampleIndices %% ALL_SM)
@@ -147,7 +146,7 @@ for(times in 1:length(SampleIndices)){
   Type2PathI<-matrix(rep(0,4),1)
   all_path<-all_simple_paths(subGraph,1,2)
   print("Find all paths...")
-  print(countSamples)
+  print(times)
   #smoothing
   if(length(all_path)<1){
     subGraph<-add.edges(subGraph,c(1,2),weight=0.000001)
@@ -429,10 +428,11 @@ for(times in 1:length(SampleIndices)){
   else{Label=0}
   Label<-as.matrix(Label)
 
-  FVector[countSamples,]<-cbind(Label,Feature1,Feature2,Feature3)
+  FVector[times,]<-cbind(Label,Feature1,Feature2,Feature3)
   print("Get feature Vectors...")
-  print(countSamples)
-  countSamples=countSamples+1
+  print(negated)
+  print("***********")
+  print(times)
 }# End the subgraph 
   print("Get feature Vectors Matrix...")
   return(FVector)       #return a matrix composed of Feature Vectors from Training or Testing samples
