@@ -49,7 +49,7 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
 
       countS=0
       for(k in 1:s){
-        if(MSA[i,k]>thresholdOfInter){
+        if((MSA[i,k]>thresholdOfInter)&&(k!=j)){
           countS=countS+1
           subGraph<-add_vertices(subGraph,1,name=paste("S",k,sep=""),label=(m+k))
           subGraph<-add_edges(subGraph,c(1,which(V(subGraph)$label==(m+k))),weight=MSA[i,k])
@@ -71,7 +71,7 @@ subGraphFeature<-function(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,
   #find s->m interactions
       countM=0
       for(k in 1:m){
-        if(MSA[k,j]>thresholdOfInter){
+        if((MSA[k,j]>thresholdOfInter)&&(k!=i)){
           countM=countM+1
           subGraph<-add_vertices(subGraph,1,name=paste("M",k,sep=""),label=k)
           subGraph<-add_edges(subGraph,c(2,which(V(subGraph)$label==k)),weight=MSA[k,j])
