@@ -442,6 +442,8 @@ for(times in 1:length(SampleIndices)){
 s = ALL_SM # 831
 m <- max(knownMSA$V2) # 541
 noOfKnownMSA <- nrow(knownMSA) # num of associations
+rankings <- matrix(nrow = 0, ncol = 3)
+colnames(rankings) <- c("globalRankings", "localRankings_SM","localRankings_miRNA")
 for(negated in 1 : nrow(knownMSA)) {
   # find negated miRNA, SM and their association's index
   negatedMiRNA <- knownMSA$V2[negated]
