@@ -694,7 +694,7 @@ unit_loop.function<-function(negated){
 clus <- makeCluster(3)
 
 ################################declare the function on each node###################################
-negated<-c(1:3)
+negated<-c(4:10)
 
 ############################################use clusters################################
 clusterExport(clus, c("negated","knownMSA","similaritiesOfMiRNA","similaritiesOfSM","ALL_SM"),envir=environment())
@@ -704,12 +704,12 @@ clusterEvalQ(clus,c(library(igraph),library(rNMF),library(xgboost),library(fpc),
 library(cluster),library(gbm),library(caret),library(plyr),library(parallel),library(snow)))
 
 	# resultt<-parLapply(clus,negated,unit_loop.function)
-  resultt<-results<-pblapply(negated, unit_loop.function,cl=clus)
+  resultt<-pblapply(negated, unit_loop.function,cl=clus)
 	res.df <- do.call('rbind',resultt) 
 	stopCluster(clus)
 	
 
-
+write.csv(res.df, file = "./test/para/para1-3r.csv", row.names = F)
 
 
 # negated<-c(3)
