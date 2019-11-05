@@ -4,10 +4,12 @@ library(rNMF)
 library(xgboost)
 library(fpc)
 library(cluster)
+library(parallel)
+library(pbapply)
 ################ read input data #####################################################################
 
 #similar_group
-#read known miRNA-SM association dataset
+####read known miRNA-SM association dataset
 # knownMSA <- read.table(file = "./SM-miRNA/similar/SM-miRNA_Num_A_similar.csv", header = F,sep=",")
 
 # # # read miRNA functional similarity matrix
@@ -393,15 +395,17 @@ noOfKnownMSA <- nrow(knownMSA) # num of associations
 
 # selection of xgboost parameters
 #parameters <- list(eta = 0.2, maxDepth = 6, lambda = 1, gamma = 0,min_child_weight=3,max_delta_step=2)
-parameters <- list(eta = 1, maxDepth = 6, lambda = 1, gamma = 0)
+
 # placeholder for loocv rankings
 rankings <- matrix(nrow = 0, ncol = 3)
 colnames(rankings) <- c("globalRankings", "localRankings_SM","localRankings_miRNA")
 
+
 # loocv loops
-for(negated in 1 : nrow(knownMSA)) {
-  # find negated miRNA, SM and their association's index
-  negatedMiRNA <- knownMSA$V2[negated]
+# unit_loocv<-function(negated){
+    # find negated miRNA, SM and their association's index
+for(negated in 1:664){
+negatedMiRNA <- knownMSA$V2[negated]
   negatedSM <- knownMSA$V1[negated]
   negatedIndex <- (negatedMiRNA - 1) * s + negatedSM
   #############################################
@@ -448,33 +452,46 @@ for(negated in 1 : nrow(knownMSA)) {
 #ClusteredNegSample<-pam(initialData,2,diss=FALSE)
 #clusplot(ClusteredNegSample$pamobject,shade = TRUE)
 #clusplot(pam(initialData,ClusteredNegSample$nc))
-########
-#try k-means
-########
-##############
-#Re-sampling
-##############
-  negativeSampleIndices<-matrix(rep(0,length(knownMSAIndices)*10),nrow=663,ncol=10)
-  # negativeSampleIndices<-matrix(rep(0,80000),nrow=8000,ncol=10)
-  positiveAndNegativeIndices<-matrix(rep(0,length(knownMSAIndices)*20),nrow=10,ncol=1326)
-  # positiveAndNegativeIndices<-matrix(rep(0,(length(knownMSAIndices)+8000)*10),nrow=10,ncol=8663)
-  for(k in 1:10){
-  randomSeed=k*100+k*10+k
-  set.seed(randomSeed)
-  negativeSampleIndices[,k] <- as.matrix(sample(allIndices[-knownMSAIndices], size = 663, replace = F))
+################no resampling#####################
+  set.seed(666)
+  negativeSampleIndices <- sample(allIndices[-knownMSAIndices], size = 663, replace = F)
+  
   # find indices for training data
-  positiveAndNegativeIndices[k,] <- c(knownMSAIndices, negativeSampleIndices[,k])
-  }
+  positiveAndNegativeIndices <- c(knownMSAIndices, negativeSampleIndices)
   
   # find indices for global and local testing data
   globalLoocvTestingIndices <- (1 : (m * s))[-knownMSAIndices]
   negatedIndexInGlobalTesting <- which(globalLoocvTestingIndices == negatedIndex)
-  negatedIndexInLocalTesting <- which(which(originalMSA[,negatedSM] == 0) == negatedMiRNA)
-  localLoocvTestingIndices <- (which(originalMSA[,negatedSM] == 0) - 1) * s + negatedSM         
-  negatedIndexInLocalTesting2 <- which(which(originalMSA[negatedMiRNA,] == 0) == negatedSM)
-  localLoocvTestingIndices2 <- (which(originalMSA[negatedMiRNA,] == 0) - 1) * m + negatedMiRNA  
-  ##############################################
-   #MSA preprocessing-----fix the zeros
+  negatedIndexInLocalTesting <-  which(which(originalMSA[,negatedSM] == 0) == negatedMiRNA)
+  localLoocvTestingIndices <- (which(originalMSA[,negatedSM] == 0) - 1) * s + negatedSM
+  negatedIndexInLocalTesting2 <-  which(which(originalMSA[negatedMiRNA,] == 0) == negatedSM)
+  localLoocvTestingIndices2 <- (which(originalMSA[negatedMiRNA,] == 0) - 1) * m + negatedMiRNA
+# ##############
+ ############10times Re-sampling#################
+# ##############
+#   negativeSampleIndices<-matrix(rep(0,length(knownMSAIndices)*10),nrow=663,ncol=10)
+#   # negativeSampleIndices<-matrix(rep(0,80000),nrow=8000,ncol=10)
+#   positiveAndNegativeIndices<-matrix(rep(0,length(knownMSAIndices)*20),nrow=10,ncol=1326)
+#   # positiveAndNegativeIndices<-matrix(rep(0,(length(knownMSAIndices)+8000)*10),nrow=10,ncol=8663)
+#   for(k in 1:10){
+#   randomSeed=k*100+k*10+k
+#   set.seed(randomSeed)
+#   negativeSampleIndices[,k] <- as.matrix(sample(allIndices[-knownMSAIndices], size = 663, replace = F))
+#   # find indices for training data
+#   positiveAndNegativeIndices[k,] <- c(knownMSAIndices, negativeSampleIndices[,k])
+#   }
+  
+#   # find indices for global and local testing data
+#   globalLoocvTestingIndices <- (1 : (m * s))[-knownMSAIndices]
+#   negatedIndexInGlobalTesting <- which(globalLoocvTestingIndices == negatedIndex)
+#   negatedIndexInLocalTesting <- which(which(originalMSA[,negatedSM] == 0) == negatedMiRNA)
+#   localLoocvTestingIndices <- (which(originalMSA[,negatedSM] == 0) - 1) * s + negatedSM         
+#   negatedIndexInLocalTesting2 <- which(which(originalMSA[negatedMiRNA,] == 0) == negatedSM)
+#   localLoocvTestingIndices2 <- (which(originalMSA[negatedMiRNA,] == 0) - 1) * m + negatedMiRNA  
+
+
+  ########################MSA preprocessing-----fix the zeros#######################
+   
   MSA<-originalMSA
   # for(i in 1:m){
   #   for(j in 1:s){
@@ -537,59 +554,185 @@ for(negated in 1 : nrow(knownMSA)) {
 
   # build training and testing data
 
+  #####################10 times sampling version####################
+#   for(k in 1:10){
+#   trainingAndTestingData <- BuildTrainingAndTestingData(MSA, similaritiesOfMiRNA, similaritiesOfSM, m, s, knownMSAIndices, 
+#                                                         negativeSampleIndices[,k], positiveAndNegativeIndices[k,], globalLoocvTestingIndices,
+#                                                         localLoocvTestingIndices,localLoocvTestingIndices2)
   
-  for(k in 1:10){
+#   # fit xgboost
+#   xgboostLoocv <- xgboost(data = trainingAndTestingData$loocvTrainingFeatureVectors[, -1], booster = "gbtree", 
+#                           label = trainingAndTestingData$loocvTrainingFeatureVectors[, 1], params = parameters, nthread = 2, nrounds = 4, 
+#                           objective = "binary:logitraw")
+#   if(k==1){        #declare a matrix to store all 10 weight results
+#     localrklen1=nrow(trainingAndTestingData$localLoocvTestingFeatureVectors)
+#     globalrklen=nrow(trainingAndTestingData$globalLoocvTestingFeatureVectors)
+#     localrklen2=nrow(trainingAndTestingData$localLoocvTestingFeatureVectors2)
+#     allpredictedWeightsLocal<-matrix(rep(0,localrklen1),nrow=1,ncol=localrklen1)
+#     allpredictedWeightsGlobal<-matrix(rep(0,globalrklen),nrow=1,ncol=globalrklen)
+#     allpredictedWeightsLocal2<-matrix(rep(0,localrklen2),nrow=1,ncol=localrklen2)
+#   }
+#   #get 10 different results
+#     allpredictedWeightsGlobal <- rbind(allpredictedWeightsGlobal,predict(xgboostLoocv, trainingAndTestingData$globalLoocvTestingFeatureVectors))
+#     allpredictedWeightsLocal <- rbind(allpredictedWeightsLocal,predict(xgboostLoocv, trainingAndTestingData$localLoocvTestingFeatureVectors))
+#     allpredictedWeightsLocal2 <- rbind(allpredictedWeightsLocal2,predict(xgboostLoocv, trainingAndTestingData$localLoocvTestingFeatureVectors2))
+  
+#   }
+# predictedWeightsGlobal<-colMeans(allpredictedWeightsGlobal)
+# predictedWeightsLocal<-colMeans(allpredictedWeightsLocal)
+# predictedWeightsLocal2<-colMeans(allpredictedWeightsLocal2)
+
+
+
+
+####################single prediction version############################
+  #prediction
+ # build training and testing data
   trainingAndTestingData <- BuildTrainingAndTestingData(MSA, similaritiesOfMiRNA, similaritiesOfSM, m, s, knownMSAIndices, 
-                                                        negativeSampleIndices[,k], positiveAndNegativeIndices[k,], globalLoocvTestingIndices,
+                                                        negativeSampleIndices, positiveAndNegativeIndices, globalLoocvTestingIndices,
                                                         localLoocvTestingIndices,localLoocvTestingIndices2)
   
-  # fit xgboost
-  xgboostLoocv <- xgboost(data = trainingAndTestingData$loocvTrainingFeatureVectors[, -1], booster = "gbtree", 
-                          label = trainingAndTestingData$loocvTrainingFeatureVectors[, 1], params = parameters, nthread = 2, nrounds = 4, 
-                          objective = "binary:logitraw")
-  if(k==1){        #declare a matrix to store all 10 weight results
-    localrklen1=nrow(trainingAndTestingData$localLoocvTestingFeatureVectors)
-    globalrklen=nrow(trainingAndTestingData$globalLoocvTestingFeatureVectors)
-    localrklen2=nrow(trainingAndTestingData$localLoocvTestingFeatureVectors2)
-    allpredictedWeightsLocal<-matrix(rep(0,localrklen1),nrow=1,ncol=localrklen1)
-    allpredictedWeightsGlobal<-matrix(rep(0,globalrklen),nrow=1,ncol=globalrklen)
-    allpredictedWeightsLocal2<-matrix(rep(0,localrklen2),nrow=1,ncol=localrklen2)
-  }
-  #get 10 different results
-    allpredictedWeightsGlobal <- rbind(allpredictedWeightsGlobal,predict(xgboostLoocv, trainingAndTestingData$globalLoocvTestingFeatureVectors))
-    allpredictedWeightsLocal <- rbind(allpredictedWeightsLocal,predict(xgboostLoocv, trainingAndTestingData$localLoocvTestingFeatureVectors))
-    allpredictedWeightsLocal2 <- rbind(allpredictedWeightsLocal2,predict(xgboostLoocv, trainingAndTestingData$localLoocvTestingFeatureVectors2))
+
+
+  # # fit xgboost
+  # parameters <- list(eta = 1, maxDepth = 6, lambda = 1, gamma = 0)
+  # xgboostLoocv <- xgboost(data = trainingAndTestingData$loocvTrainingFeatureVectors[, -1], booster = "gbtree", 
+  #                         label = trainingAndTestingData$loocvTrainingFeatureVectors[, 1], params = parameters, nthread = 2, nrounds = 2, 
+  #                         objective = "binary:logitraw")
+
+  # predictedWeightsGlobal<-predict(xgboostLoocv, trainingAndTestingData$globalLoocvTestingFeatureVectors)
+  # predictedWeightsLocal<-predict(xgboostLoocv, trainingAndTestingData$localLoocvTestingFeatureVectors)
+  # predictedWeightsLocal2<-predict(xgboostLoocv, trainingAndTestingData$localLoocvTestingFeatureVectors2)
   
-  }
-predictedWeightsGlobal<-colMeans(allpredictedWeightsGlobal)
-predictedWeightsLocal<-colMeans(allpredictedWeightsLocal)
-predictedWeightsLocal2<-colMeans(allpredictedWeightsLocal2)
+  ################gbm##################
+  X_train=trainingAndTestingData$loocvTrainingFeatureVectors[, -1]
+    #Y_trian=labels
+    Y_train=trainingAndTestingData$loocvTrainingFeatureVectors[, 1]
 
-  # prediction
- # # build training and testing data
- #  trainingAndTestingData <- BuildTrainingAndTestingData(MSA, similaritiesOfMiRNA, similaritiesOfSM, m, s, knownMSAIndices, 
- #                                                        negativeSampleIndices, positiveAndNegativeIndices, globalLoocvTestingIndices,
- #                                                        localLoocvTestingIndices,localLoocvTestingIndices2)
+
+########tuned#########
+#####related#####
+  trControl<-trainControl(method = "cv",number = 3)
+  gbmGrid <-  expand.grid(interaction.depth =4, 
+                          n.trees =  400, 
+                          shrinkage = c(0.06),
+                          n.minobsinnode = 10)
+   gbm2=caret::train(data.frame(X_train), Y_train, method = "gbm", preProcess ='scale', 
+    weights = NULL,trControl=trControl,metric = "RMSE",tuneGrid = gbmGrid)
+###similar###but the MiRNA not good
+
+#####################################################using GBDT######################################
+  # trControl<-trainControl(method = "cv",number = 10)
+  # gbmGrid <-  expand.grid(interaction.depth =c(3), 
+  #                         n.trees =  c(200,150), 
+  #                         shrinkage = c(0.1),
+  #                         n.minobsinnode = 10)
+  #  gbm2=caret::train(data.frame(X_train), Y_train, method = "gbm", preProcess =NULL, 
+  #   weights = NULL,trControl=trControl,metric = "RMSE",tuneGrid = gbmGrid)
+
+ #       #############
+ #    #use the GBDT model to predict
+ #    #############
+    print("Predicting scores...")
+    predictedWeightsGlobal <- predict(gbm2, data.frame(trainingAndTestingData$globalLoocvTestingFeatureVectors))
+    predictedWeightsLocal <- predict(gbm2, data.frame(trainingAndTestingData$localLoocvTestingFeatureVectors))
+    predictedWeightsLocal2 <- predict(gbm2, data.frame(trainingAndTestingData$localLoocvTestingFeatureVectors2))
+
+ globalRankingOfNegated <- which(sort.int(predictedWeightsGlobal, decreasing = T, index.return = T)$ix == negatedIndexInGlobalTesting)
+  localRankingOfNegated <- which(sort.int(predictedWeightsLocal, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting)
+  localRankingOfNegated2 <- which(sort.int(predictedWeightsLocal2, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting2)
+#####################################################USING xgboost##################################
+# parameters <- list(eta = 0.02, maxDepth = 5, lambda =5, gamma =5
+#           ,subsample=0.7,verbosity=2) 
+#  xgboostLoocv <- xgboost(data = trainingAndTestingData$loocvTrainingFeatureVectors[,-1], booster = "gbtree", 
+#                           label = trainingAndTestingData$loocvTrainingFeatureVectors[,1], params = parameters, nrounds = 100, 
+#                           objective = "binary:logitraw",verbose=2)
   
- #  # fit xgboost
- #  xgboostLoocv <- xgboost(data = trainingAndTestingData$loocvTrainingFeatureVectors[, -1], booster = "gbtree", 
- #                          label = trainingAndTestingData$loocvTrainingFeatureVectors[, 1], params = parameters, nthread = 2, nrounds = 2, 
- #                          objective = "binary:logitraw")
+#   # prediction
+#   predictedWeightsGlobal <- predict(xgboostLoocv, as.matrix(trainingAndTestingData$globalLoocvTestingFeatureVectors))
+#   predictedWeightsLocal <- predict(xgboostLoocv, as.matrix(trainingAndTestingData$localLoocvTestingFeatureVectors))
+#  predictedWeightsLocal2 <- predict(xgboostLoocv, as.matrix(trainingAndTestingData$localLoocvTestingFeatureVectors2))
 
- #  predictedWeightsGlobal<-predict(xgboostLoocv, trainingAndTestingData$globalLoocvTestingFeatureVectors)
- #  predictedWeightsLocal<-predict(xgboostLoocv, trainingAndTestingData$localLoocvTestingFeatureVectors
- #  predictedWeightsLocal2<-predict(xgboostLoocv, trainingAndTestingData$localLoocvTestingFeatureVectors2)
+#  globalRankingOfNegated <- which(sort.int(predictedWeightsGlobal, decreasing = T, index.return = T)$ix == negatedIndexInGlobalTesting)
+#   localRankingOfNegated <- which(sort.int(predictedWeightsLocal, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting)
+# localRankingOfNegated2 <- which(sort.int(predictedWeightsLocal2, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting2)
+
+
+#######AUC########
+
+ # preGlobalProb <- (predictedWeightsGlobal-min(predictedWeightsGlobal))/(max(predictedWeightsGlobal)-min(predictedWeightsGlobal))
+ #  preLocalProb1<-(predictedWeightsLocal-min(predictedWeightsLocal))/(max(predictedWeightsLocal)-min(predictedWeightsLocal))
+
+  # true_class<-str_glue("Class{PARS_human[holdout[[i]],][,151]}")
+  # class_1_prob<-PARS_human_result1
+  # test_set <- data.frame(obs = true_class,
+  #                        Class1 = class_1_prob)
+  # test_set$Class0 <- 1 - test_set$Class1
+  # test_set$pred <- factor(ifelse(test_set$Class1 >= .5, "Class1", "Class0"))
+  # #get the scores
+  # Confu_matrix<-confusionMatrix(data = test_set$pred, reference = test_set$obs, mode = "prec_recall")
+  # ACC<- Confu_matrix$overall["Accuracy"]
+  # unitResult<-prSummary(test_set, lev = levels(test_set$obs))
+  # Result[i,]<-t(as.matrix(c(unitResult,ACC)))
+  ####Train AUC#####
+# predictedTrain <- predict(xgboostLoocv, as.matrix(trainingAndTestingData$loocvTrainingFeatureVectors[,-1]))
+predictedTrain <- predict(gbm2, as.matrix(trainingAndTestingData$loocvTrainingFeatureVectors[,-1]))
+ preTrainProb <- (predictedTrain-min(predictedTrain))/(max(predictedTrain)-min(predictedTrain))
+true_class<-str_glue("Class{trainingAndTestingData$loocvTrainingFeatureVectors[,1]}")
+ class_1_prob<- preTrainProb
+ test_set <- data.frame(obs = true_class,
+                        Class1 = class_1_prob)
+ test_set$Class0 <- 1 - test_set$Class1
+ test_set$pred <- factor(ifelse(test_set$Class1 >= .5, "Class1", "Class0"))
+ #get the scores
+ Confu_matrix<-confusionMatrix(data = test_set$pred, reference = test_set$obs, mode = "prec_recall")
+ ACC<- Confu_matrix$overall["Accuracy"]
+ unitResult<-prSummary(test_set, lev = levels(test_set$obs))
+ Result<-t(as.matrix(c(unitResult,ACC)))
+
+########test Global AUC########
+predictedTestG <- predict(gbm2, as.matrix(trainingAndTestingData$globalLoocvTestingFeatureVectors))
+ preGlobalProb <- (predictedTestG-min(predictedTestG))/(max(predictedTestG)-min(predictedTestG))
+ true_class<-str_glue("Class{0}")
+ class_1_prob<- preGlobalProb
+ test_set <- data.frame(obs = true_class,
+                        Class1 = class_1_prob)
+ test_set$Class0 <- 1 - test_set$Class1
+ test_set$pred <- factor(ifelse(test_set$Class1 >= .5, "Class1", "Class0"))
+
+
+
+
+
   
+#   X_train=trainingAndTestingData$loocvTrainingFeatureVectors[, c(-1,-15,-33,-40,-85)]
+#     #Y_trian=labels
+#     Y_train=trainingAndTestingData$loocvTrainingFeatureVectors[, 1]
 
+#   trControl<-trainControl(method = "cv",number = 10)
+#   gbmGrid <-  expand.grid(interaction.depth =3, 
+#                           n.trees =  c(1000,1200), 
+#                           shrinkage = c(0.1),
+#                           n.minobsinnode = 10)
+# #test maximization
+#    gbm2=caret::train(data.frame(X_train), Y_train, method = "gbm", preProcess = "pca", 
+#     weights = NULL,trControl=trControl,metric = "RMSE",tuneGrid = gbmGrid)
 
+#     #############
+#     #use the model to predict
+#     #############
+#     print("Predicting scores...")
+#     predictedWeightsGlobal <- predict(gbm2, data.frame(trainingAndTestingData$globalLoocvTestingFeatureVectors[,c(-14,-32,-39,-84)]))
+#     predictedWeightsLocal <- predict(gbm2, data.frame(trainingAndTestingData$localLoocvTestingFeatureVectors[,c(-14,-32,-39,-84)]))
+#     predictedWeightsLocal2 <- predict(gbm2, data.frame(trainingAndTestingData$localLoocvTestingFeatureVectors2[,c(-14,-32,-39,-84)]))
 
 
 
 
   # build rankings
-  #####################
-  #average_ranking
-  #####################
+
+  ###############average_ranking###############
+
   # globalscoreDicrease=sort.int(predictedWeightsGlobal, decreasing = T, index.return = T)
   # localscoreDicrease=sort.int(predictedWeightsLocal, decreasing = T, index.return = T)
   # localscoreDicrease2=sort.int(predictedWeightsLocal2, decreasing = T, index.return = T)
@@ -603,20 +746,48 @@ predictedWeightsLocal2<-colMeans(allpredictedWeightsLocal2)
   # localfinalrank2 <- mean(which(localscoreDicrease2$x==localscoreDicrease2$x[localRankingOfNegated2]))
 
   # rankings <- rbind(rankings, c(globalfinalrank, localfinalrank, localfinalrank2))
-  ############
-  #accurate ranking
-  ############
-  globalRankingOfNegated <- which(sort.int(predictedWeightsGlobal, decreasing = T, index.return = T)$ix == negatedIndexInGlobalTesting)
-  localRankingOfNegated <- which(sort.int(predictedWeightsLocal, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting)
-  localRankingOfNegated2 <- which(sort.int(predictedWeightsLocal2, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting2)
+
+  #######################accurate ranking###################
+
+ 
   rankings <- rbind(rankings, c(globalRankingOfNegated, localRankingOfNegated, localRankingOfNegated2))
+#   return(rankings)
+# }
+ 
 }
+  
+
+
+
+#################################use multi-cores running################################
+#REMEMBER : change 3-cores to 7-cores on workstation
+# clus <- makeCluster(3)
+
+# ################################declare the function on each node###################################
+# negated<-c(1:5)
+
+# ############################################use clusters################################
+# clusterExport(clus, c("MshapeOfMiRNA","ALL_MiRNA","MshapeOfSM","s","m","noOfKnownMSA","rankings",
+#   "negated","knownMSA","similaritiesOfMiRNA","similaritiesOfSM","ALL_SM"),envir=environment())
+# #########################clusterEvalQ_start################################
+# clusterExport(clus,c("BuildTrainingAndTestingData","unit_loocv"))
+# clusterEvalQ(clus,c(library(igraph),library(rNMF),library(xgboost),library(fpc),
+# library(cluster),library(gbm),library(caret),library(plyr),library(parallel),library(snow)))
+
+#   # resultt<-parLapply(clus,negated,unit_loop.function)
+#   resultt<-pblapply(negated, unit_loocv,cl=clus)
+#   res.df <- do.call('rbind',resultt) 
+#   stopCluster(clus)
+  
+
+
+
 
 # write rankings to disk
-write.csv(rankings, file = "./test/newr8.30-.csv", row.names = F)
-write.table(rankings, file = "./test/newr8.30.txt", col.names = T, row.names = F, sep = "\t")
+#write.csv(res.df, file = "./test/old_feature_XGBOOST/tuned1-21S.csv", row.names = F)
+
 
 
 # write rankings to disk
-# write.csv(rankings, file = "./test/newrgbdt-.csv", row.names = F)
+write.csv(rankings, file = "./test/old_feature_XGBOOST/New_xgboost.csv", row.names = F)
 # write.table(rankings, file = "./test/newrgbdt.txt", col.names = T,row.names = F, sep = "\t")

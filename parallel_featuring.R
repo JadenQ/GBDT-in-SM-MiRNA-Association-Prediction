@@ -646,47 +646,10 @@ unit_loop.function<-function(negated){
   # SampleIndices<-localLoocvTestingIndices2
   # FeatureVOfLocaltestSamples2<-subGraphFeature(MSA, similaritiesOfMiRNA, Wm,Ws,Km,Ks,KmIndex,KsIndex,similaritiesOfSM, m, s, SampleIndices)
 
-#############
-#grid search find the best model
-#############
-  ###############
-  #Training model
-  ###############
-  set.seed(666)
-  print("Training the model...")
-  for(i in 1:length(negated)){
-    X_train=FeatureVOfTrainingSamples[[i]][, -1]
-    #Y_trian=labels
-    Y_train=FeatureVOfTrainingSamples[[i]][, 1]
 
-	trControl<-trainControl(method = "cv",number = 10)
-	gbmGrid <-  expand.grid(interaction.depth =3, 
-                          n.trees =  c(200,400,1000), 
-                          shrinkage = c(0.1,0.05),
-                          n.minobsinnode = 10)
-#test maximization
-	 gbm2=caret::train(data.frame(X_train), Y_train, method = "gbm", preProcess = NULL, 
-	  weights = NULL,trControl=trControl,metric = "RMSE",tuneGrid = gbmGrid)
-
-    #############
-    #use the model to predict
-    #############
-    print("Predicting scores...")
-    predictedWeightsGlobal <- predict(gbm2, data.frame(FeatureVOfGlobalTestSamples[[i]][,-1]))
-    predictedWeightsLocal <- predict(gbm2, data.frame(FeatureVOfLocaltestSamples1[[i]][,-1]))
-    predictedWeightsLocal2 <- predict(gbm2, data.frame(FeatureVOfLocaltestSamples2[[i]][,-1]))
-    
-    ##########
-    #get the ranking
-    ##########
-    print("Give the ranking...")
-    globalRankingOfNegated <- which(sort.int(predictedWeightsGlobal, decreasing = T, index.return = T)$ix == negatedIndexInGlobalTesting[i])
-    localRankingOfNegated <- which(sort.int(predictedWeightsLocal, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting[i])
-    localRankingOfNegated2 <- which(sort.int(predictedWeightsLocal2, decreasing = T, index.return = T)$ix == negatedIndexInLocalTesting2[i])
-    rankings <- rbind(rankings, c(globalRankingOfNegated, localRankingOfNegated, localRankingOfNegated2))
-  }
+  Featuring<-list(FeatureVOfGlobalTestSamples,FeatureVOfTrainingSamples,FeatureVOfLocaltestSamples1,FeatureVOfLocaltestSamples2)
  
-  return(rankings)}
+  return(Featuring)}
 
 
 #################################use multi-cores running################################
@@ -694,7 +657,7 @@ unit_loop.function<-function(negated){
 clus <- makeCluster(3)
 
 ################################declare the function on each node###################################
-negated<-c(2)
+negated<-c(1:664)
 
 ############################################use clusters################################
 clusterExport(clus, c("negated","knownMSA","similaritiesOfMiRNA","similaritiesOfSM","ALL_SM"),envir=environment())
@@ -703,13 +666,12 @@ clusterExport(clus,c("subGraphFeature","unit_loop.function"))
 clusterEvalQ(clus,c(library(igraph),library(rNMF),library(xgboost),library(fpc),
 library(cluster),library(gbm),library(caret),library(plyr),library(parallel),library(snow)))
 
-	# resultt<-parLapply(clus,negated,unit_loop.function)
+  # resultt<-parLapply(clus,negated,unit_loop.function)
   resultt<-pblapply(negated, unit_loop.function,cl=clus)
-	res.df <- do.call('rbind',resultt) 
-	stopCluster(clus)
-	
+  res.df <- do.call('rbind',resultt) 
+  stopCluster(clus)
+  
 
-write.csv(res.df, file = "./test/para/para2r.csv", row.names = F)
 
 
 # negated<-c(3)
